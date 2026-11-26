@@ -19,6 +19,11 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only-change-me")
 class LoginRequest(BaseModel):
     email: str
     password: str
+class ServiceRequest(BaseModel):
+    name: str
+    duration_min: int = Field(gt=0)
+    price: float = Field(ge=0)
+
 
 class RegisterRequest(BaseModel):
     name: str
@@ -134,3 +139,62 @@ def register(u: RegisterRequest):
     new_id = cur.lastrowid
     conn.close()
     return {"id": new_id, "name": u.name, "email": u.email, "role": u.role}
+
+@app.get("/bookings")
+def my_bookings(user: dict = Depends(get_current_user)):
+    conn = get_db()
+    if user["role"] == "customer":
+        rows = conn.execute(
+            "SELECT bookings.id, services.name AS service, "
+            "bookings.start_time, bookings.end_time, bookings.status "
+            "FROM bookings JOIN services ON bookings.service_id = services.id "
+            "WHERE bookings.customer_id = ? ORDER BY bookings.start_time",
+            (user["id"],),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT bookings.id, users.name AS customer, services.name AS service, "
+            "bookings.start_time, bookings.end_time, bookings.status "
+            "FROM bookings "
+            "JOIN services ON bookings.service_id = services.id "
+            "JOIN users ON bookings.customer_id = users.id "
+            "WHERE services.owner_id = ? ORDER BY bookings.start_time",
+            (user["id"],),
+        ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+@app.post("/services", status_code=201)
+def create_service(s: ServiceRequest, user: dict = Depends(get_current_user)):
+    if user["role"] != "owner":
+        raise HTTPException(status_code=403, detail="Only owners can add services")
+    conn = get_db()
+    cur = conn.execute(
+        "INSERT INTO services (name, duration_min, price, owner_id) VALUES (?, ?, ?, ?)",
+        (s.name, s.duration_min, s.price, user["id"]),
+    )
+    conn.commit()
+    new_id = cur.lastrowid
+    conn.close()
+    return {"id": new_id, "name": s.name}
+
+@app.patch("/bookings/{booking_id}/cancel")
+def cancel_booking(booking_id: int, user: dict = Depends(get_current_user)):
+    conn = get_db()
+    booking = conn.execute(
+        "SELECT customer_id, status FROM bookings WHERE id = ?", (booking_id,)
+    ).fetchone()
+    if booking is None:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Booking not found")
+    if booking["customer_id"] != user["id"]:
+        conn.close()
+        raise HTTPException(status_code=403, detail="Not your booking")
+    if booking["status"] == "cancelled":
+        conn.close()
+        raise HTTPException(status_code=409, detail="Already cancelled")
+
+    conn.execute("UPDATE bookings SET status = 'cancelled' WHERE id = ?", (booking_id,))
+    conn.commit()
+    conn.close()
+    return {"id": booking_id, "status": "cancelled"}
