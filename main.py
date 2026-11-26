@@ -1,10 +1,19 @@
 import sqlite3
+import bcrypt
 from fastapi import FastAPI
 from datetime import datetime, timedelta
 from fastapi import HTTPException
 from pydantic import BaseModel
+from typing import Literal
+from pydantic import Field
 
 app = FastAPI()
+
+class RegisterRequest(BaseModel):
+    name: str
+    email: str
+    password: str = Field(min_length=8)
+    role: Literal["customer", "owner"]
 
 class BookingRequest(BaseModel):
     customer_id: int
@@ -63,3 +72,20 @@ def create_booking(b: BookingRequest):
     new_id = cur.lastrowid
     conn.close()
     return {"id": new_id, "end_time": end_text}
+
+@app.post("/register", status_code=201)
+def register(u: RegisterRequest):
+    hashed = bcrypt.hashpw(u.password.encode(), bcrypt.gensalt()).decode()
+    conn = get_db()
+    try:
+        cur = conn.execute(
+            "INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)",
+            (u.name, u.email, hashed, u.role),
+        )
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.close()
+        raise HTTPException(status_code=409, detail="Email already registered")
+    new_id = cur.lastrowid
+    conn.close()
+    return {"id": new_id, "name": u.name, "email": u.email, "role": u.role}
