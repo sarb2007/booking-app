@@ -9,7 +9,10 @@ from pydantic import BaseModel
 from typing import Literal
 from pydantic import Field
 from datetime import timezone
+from fastapi import Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
+bearer = HTTPBearer()
 app = FastAPI()
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only-change-me")
 
@@ -24,7 +27,6 @@ class RegisterRequest(BaseModel):
     role: Literal["customer", "owner"]
 
 class BookingRequest(BaseModel):
-    customer_id: int
     service_id: int
     start_time: str   # format: "2026-12-01 10:00"
 
@@ -34,6 +36,9 @@ def get_db():
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
+
+
+
 @app.post("/login")
 def login(creds: LoginRequest):
     conn = get_db()
@@ -56,6 +61,14 @@ def login(creds: LoginRequest):
     token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
     return {"access_token": token, "token_type": "bearer"}
 
+def get_current_user(creds: HTTPAuthorizationCredentials = Depends(bearer)):
+    try:
+        payload = jwt.decode(creds.credentials, SECRET_KEY, algorithms=["HS256"])
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    return {"id": int(payload["sub"]), "role": payload["role"]}
+
+
 @app.get("/services")
 def list_services():
     conn = get_db()
@@ -66,8 +79,11 @@ def list_services():
     return [dict(r) for r in rows]
 
 @app.post("/bookings", status_code=201)
-def create_booking(b: BookingRequest):
+def create_booking(b: BookingRequest, user: dict = Depends(get_current_user)):
     conn = get_db()
+    if user["role"] != "customer":
+        raise HTTPException(status_code=403, detail="Only customers can book")
+    
     service = conn.execute(
         "SELECT duration_min, owner_id FROM services WHERE id = ?", (b.service_id,)
     ).fetchone()
@@ -95,7 +111,7 @@ def create_booking(b: BookingRequest):
     cur = conn.execute(
         "INSERT INTO bookings (customer_id, service_id, start_time, end_time, status) "
         "VALUES (?, ?, ?, ?, 'confirmed')",
-        (b.customer_id, b.service_id, b.start_time, end_text),
+        (user["id"], b.service_id, b.start_time, end_text),
     )
     conn.commit()
     new_id = cur.lastrowid
