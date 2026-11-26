@@ -1,13 +1,21 @@
 import sqlite3
 import bcrypt
+import os
+import jwt
 from fastapi import FastAPI
 from datetime import datetime, timedelta
 from fastapi import HTTPException
 from pydantic import BaseModel
 from typing import Literal
 from pydantic import Field
+from datetime import timezone
 
 app = FastAPI()
+SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only-change-me")
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
 
 class RegisterRequest(BaseModel):
     name: str
@@ -26,6 +34,27 @@ def get_db():
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
+@app.post("/login")
+def login(creds: LoginRequest):
+    conn = get_db()
+    user = conn.execute(
+        "SELECT id, password_hash, role FROM users WHERE email = ?",
+        (creds.email,),
+    ).fetchone()
+    conn.close()
+
+    if user is None or not bcrypt.checkpw(
+        creds.password.encode(), user["password_hash"].encode()
+    ):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    payload = {
+        "sub": str(user["id"]),
+        "role": user["role"],
+        "exp": datetime.now(timezone.utc) + timedelta(hours=1),
+    }
+    token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+    return {"access_token": token, "token_type": "bearer"}
 
 @app.get("/services")
 def list_services():
