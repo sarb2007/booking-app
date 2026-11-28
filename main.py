@@ -6,9 +6,8 @@ import smtplib
 from fastapi import FastAPI
 from datetime import datetime, timedelta
 from fastapi import HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, EmailStr
 from typing import Literal
-from pydantic import Field
 from datetime import timezone
 from fastapi import Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -33,7 +32,7 @@ class ServiceRequest(BaseModel):
 
 class RegisterRequest(BaseModel):
     name: str
-    email: str
+    email: EmailStr
     password: str = Field(min_length=8)
     role: Literal["customer", "owner"]
 
@@ -75,7 +74,7 @@ def login(creds: LoginRequest):
         "exp": datetime.now(timezone.utc) + timedelta(hours=1),
     }
     token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
-    return {"access_token": token, "token_type": "bearer"}
+    return {"access_token": token, "token_type": "bearer", "role": user["role"]}
 
 def get_current_user(creds: HTTPAuthorizationCredentials = Depends(bearer)):
     try:

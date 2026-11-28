@@ -79,3 +79,9 @@ def test_cannot_cancel_someone_elses_booking(client):
 
     own = client.patch(f"/bookings/{bid}/cancel", headers=sam)
     assert own.status_code == 200
+
+def test_invalid_email_rejected(client):
+    r = client.post("/register", json={
+        "name": "Bad", "email": "preet",
+        "password": "password123", "role": "customer"})
+    assert r.status_code == 422

@@ -29,6 +29,7 @@
     <h1>Services</h1>
     <ul id="services"></ul>
 
+    <button onclick="logout()">Log out</button>
     <!-- now free slots -->
 
     <h2>Free slots</h2>
@@ -40,28 +41,29 @@
 
     <p id="book-msg"></p>
 
-    
+
     <!-- owner tools -->
 
+    <div id="owner-tools" hidden>
+        <h2>Owner tools</h2>
+        <h3>Add a service</h3>
+        <input id="svc-name" placeholder="Service name">
+        <input id="svc-duration" type="number" placeholder="Minutes">
+        <input id="svc-price" type="number" step="0.01" placeholder="Price">
+        <button onclick="addService()">Add service</button>
+        <p id="svc-msg"></p>
+        
 
-    <h2>Owner tools</h2>
-    <h3>Add a service</h3>
-    <input id="svc-name" placeholder="Service name">
-    <input id="svc-duration" type="number" placeholder="Minutes">
-    <input id="svc-price" type="number" step="0.01" placeholder="Price">
-    <button onclick="addService()">Add service</button>
-    <p id="svc-msg"></p>
-
-    <h3>Set working hours</h3>
-    <select id="av-day">
-    <option>Mon</option><option>Tue</option><option>Wed</option>
-    <option>Thu</option><option>Fri</option><option>Sat</option><option>Sun</option>
-    </select>
-    <input id="av-start" type="time">
-    <input id="av-end" type="time">
-    <button onclick="setHours()">Save hours</button>
-    <p id="av-msg"></p>
-
+        <h3>Set working hours</h3>
+        <select id="av-day">
+        <option>Mon</option><option>Tue</option><option>Wed</option>
+        <option>Thu</option><option>Fri</option><option>Sat</option><option>Sun</option>
+        </select>
+        <input id="av-start" type="time">
+        <input id="av-end" type="time">
+        <button onclick="setHours()">Save hours</button>
+        <p id="av-msg"></p>
+    </div>
     <!-- my bookings -->
 
     <h2>My bookings</h2>

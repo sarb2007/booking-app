@@ -15,6 +15,8 @@ async function login() {
     }
     const data = await res.json();
     localStorage.setItem("token", data.access_token);
+    localStorage.setItem("role", data.role);
+    updateView();
     status.textContent = "Logged in";
     loadBookings();
 }
@@ -215,3 +217,21 @@ function setHours() {
     end_time: document.getElementById("av-end").value,
   }, "av-msg", "Hours saved");
 }
+
+// update view based on role
+
+function updateView() {
+  const role = localStorage.getItem("role");
+  document.getElementById("owner-tools").hidden = role !== "owner";
+}
+
+// logout function
+
+function logout() {
+  localStorage.removeItem("token");
+  localStorage.removeItem("role");
+  updateView();
+  loadBookings();
+}
+
+updateView();
