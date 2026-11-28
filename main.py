@@ -14,11 +14,33 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from email.message import EmailMessage
 from fastapi import BackgroundTasks
 from fastapi.staticfiles import StaticFiles
+from contextlib import asynccontextmanager
 
 DB_PATH = "booking.db"
 
+
+
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    exists = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='users'"
+    ).fetchone()
+    if not exists:
+        schema = os.path.join(os.path.dirname(__file__), "schema.sql")
+        with open(schema) as f:
+            conn.executescript(f.read())
+    conn.close()
+
+@asynccontextmanager
+async def lifespan(app):
+    init_db()
+    yield
+
+
+
+
 bearer = HTTPBearer()
-app = FastAPI()
+app = FastAPI(lifespan=lifespan)
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only-change-me")
 
 class LoginRequest(BaseModel):
