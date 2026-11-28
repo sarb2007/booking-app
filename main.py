@@ -14,6 +14,7 @@ from fastapi import Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from email.message import EmailMessage
 from fastapi import BackgroundTasks
+from fastapi.staticfiles import StaticFiles
 
 DB_PATH = "booking.db"
 
@@ -297,3 +298,5 @@ def send_email(to: str, subject: str, body: str):
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(user, password)
         server.send_message(msg)
+
+app.mount("/app", StaticFiles(directory="static", html=True), name="static")
