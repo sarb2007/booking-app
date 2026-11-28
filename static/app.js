@@ -125,8 +125,8 @@ async function loadBookings() {
   msg.textContent = bookings.length === 0 ? "No bookings yet" : "";
   for (const b of bookings) {
     const li = document.createElement("li");
-    li.textContent = `${b.service} - ${b.start_time} - ${b.status} `;
-    if (b.status === "confirmed") {
+    li.textContent = `${b.customer ? b.customer + " - " : ""}${b.service} - ${b.start_time} - ${b.status} `;
+    if (b.status === "confirmed" && !b.customer) {
       const btn = document.createElement("button");
       btn.textContent = "Cancel";
       btn.onclick = () => cancelBooking(b.id);
@@ -170,4 +170,48 @@ async function register() {
   } else {
     msg.textContent = "Something went wrong";
   }
+}
+
+ // owner post helper function
+
+async function ownerPost(url, body, msgId, okText) {
+  const token = localStorage.getItem("token");
+  const msg = document.getElementById(msgId);
+  if (!token) {
+    msg.textContent = "Please log in first";
+    return;
+  }
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + token,
+    },
+    body: JSON.stringify(body),
+  });
+  if (res.status === 201) {
+    msg.textContent = okText;
+  } else if (res.status === 401 || res.status === 403) {
+    msg.textContent = "Log in as a business owner";
+  } else {
+    msg.textContent = "Check your details";
+  }
+  return res.status === 201;
+}
+
+async function addService() {
+  const ok = await ownerPost("/services", {
+    name: document.getElementById("svc-name").value,
+    duration_min: Number(document.getElementById("svc-duration").value),
+    price: Number(document.getElementById("svc-price").value),
+  }, "svc-msg", "Service added");
+  if (ok) location.reload();
+}
+
+function setHours() {
+  ownerPost("/availability", {
+    day_of_week: document.getElementById("av-day").value,
+    start_time: document.getElementById("av-start").value,
+    end_time: document.getElementById("av-end").value,
+  }, "av-msg", "Hours saved");
 }
