@@ -2,6 +2,7 @@ import sqlite3
 import bcrypt
 import os
 import jwt
+import smtplib
 from fastapi import FastAPI
 from datetime import datetime, timedelta
 from fastapi import HTTPException
@@ -11,6 +12,8 @@ from pydantic import Field
 from datetime import timezone
 from fastapi import Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from email.message import EmailMessage
+from fastapi import BackgroundTasks
 
 DB_PATH = "booking.db"
 
@@ -91,7 +94,7 @@ def list_services():
     return [dict(r) for r in rows]
 
 @app.post("/bookings", status_code=201)
-def create_booking(b: BookingRequest, user: dict = Depends(get_current_user)):
+def create_booking(b: BookingRequest, background: BackgroundTasks, user: dict = Depends(get_current_user)):
     conn = get_db()
     if user["role"] != "customer":
         raise HTTPException(status_code=403, detail="Only customers can book")
@@ -127,7 +130,14 @@ def create_booking(b: BookingRequest, user: dict = Depends(get_current_user)):
     )
     conn.commit()
     new_id = cur.lastrowid
+    row = conn.execute(
+        "SELECT email FROM users WHERE id = ?", (user["id"],)
+    ).fetchone()
     conn.close()
+    background.add_task(
+        send_email, row["email"], "Booking confirmed",
+        f"Your booking is confirmed for {b.start_time}.",
+    )
     return {"id": new_id, "end_time": end_text}
 
 @app.post("/register", status_code=201)
@@ -272,3 +282,18 @@ def get_slots(service_id: int, date: str):
             slots.append({"start_time": s, "end_time": e, "available": free})
             cur += step
     return slots
+
+def send_email(to: str, subject: str, body: str):
+    user = os.environ.get("EMAIL_USER")
+    password = os.environ.get("EMAIL_PASSWORD")
+    if not user or not password:
+        print(f"[email not sent] To: {to} | {subject}\n{body}")
+        return
+    msg = EmailMessage()
+    msg["From"] = user
+    msg["To"] = to
+    msg["Subject"] = subject
+    msg.set_content(body)
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        server.login(user, password)
+        server.send_message(msg)
