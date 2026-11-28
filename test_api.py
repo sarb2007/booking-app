@@ -64,3 +64,18 @@ def test_booking_requires_login(client):
     r = client.post("/bookings", json={
         "service_id": 1, "start_time": "2026-12-02 11:00"})
     assert r.status_code in (401, 403)
+
+def test_cannot_cancel_someone_elses_booking(client):
+    owner = make_user(client, "Amy", "amy@mail.com", "owner")
+    sam = make_user(client, "Sam", "sam@mail.com", "customer")
+    lee = make_user(client, "Lee", "lee@mail.com", "customer")
+    sid = client.post("/services", headers=owner, json={
+        "name": "Haircut", "duration_min": 30, "price": 15}).json()["id"]
+    bid = client.post("/bookings", headers=sam, json={
+        "service_id": sid, "start_time": "2026-12-02 11:00"}).json()["id"]
+
+    stolen = client.patch(f"/bookings/{bid}/cancel", headers=lee)
+    assert stolen.status_code == 403
+
+    own = client.patch(f"/bookings/{bid}/cancel", headers=sam)
+    assert own.status_code == 200
