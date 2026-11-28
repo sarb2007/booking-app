@@ -1,21 +1,22 @@
 // login function
 async function login() {
-const res = await fetch("/login", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({
-    email: document.getElementById("email").value,
-    password: document.getElementById("password").value,
-    }),
-});
-const status = document.getElementById("status");
-if (!res.ok) {
-    status.textContent = "Invalid email or password";
-    return;
-}
-const data = await res.json();
-localStorage.setItem("token", data.access_token);
-status.textContent = "Logged in";
+    const res = await fetch("/login", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+        email: document.getElementById("email").value,
+        password: document.getElementById("password").value,
+        }),
+    });
+    const status = document.getElementById("status");
+    if (!res.ok) {
+        status.textContent = "Invalid email or password";
+        return;
+    }
+    const data = await res.json();
+    localStorage.setItem("token", data.access_token);
+    status.textContent = "Logged in";
+    loadBookings();
 }
 
 
@@ -25,13 +26,13 @@ async function loadServices() {
     const services = await res.json();
     const list = document.getElementById("services");
     for (const s of services) {
-    const li = document.createElement("li");
-    li.textContent = `${s.name} - ${s.duration_min} min - £${s.price}`;
-    list.appendChild(li);
-    const option = document.createElement("option");
-    option.value = s.id;
-    option.textContent = s.name;
-    document.getElementById("service-select").appendChild(option);
+        const li = document.createElement("li");
+        li.textContent = `${s.name} - ${s.duration_min} min - £${s.price}`;
+        list.appendChild(li);
+        const option = document.createElement("option");
+        option.value = s.id;
+        option.textContent = s.name;
+        document.getElementById("service-select").appendChild(option);
     }
 }
 loadServices();
@@ -99,4 +100,50 @@ async function bookSlot(serviceId, startTime) {
     msg.textContent = "Something went wrong";
   }
   loadSlots();
+  loadBookings();
+}
+
+// load bookings function
+
+async function loadBookings() {
+  const token = localStorage.getItem("token");
+  const msg = document.getElementById("bookings-msg");
+  const list = document.getElementById("bookings");
+  list.replaceChildren();
+  if (!token) {
+    msg.textContent = "Log in to see your bookings";
+    return;
+  }
+  const res = await fetch("/bookings", {
+    headers: {"Authorization": "Bearer " + token},
+  });
+  if (!res.ok) {
+    msg.textContent = "Please log in again";
+    return;
+  }
+  const bookings = await res.json();
+  msg.textContent = bookings.length === 0 ? "No bookings yet" : "";
+  for (const b of bookings) {
+    const li = document.createElement("li");
+    li.textContent = `${b.service} - ${b.start_time} - ${b.status} `;
+    if (b.status === "confirmed") {
+      const btn = document.createElement("button");
+      btn.textContent = "Cancel";
+      btn.onclick = () => cancelBooking(b.id);
+      li.appendChild(btn);
+    }
+    list.appendChild(li);
+  }
+}
+
+// cancel booking function
+
+
+async function cancelBooking(id) {
+  const token = localStorage.getItem("token");
+  await fetch(`/bookings/${id}/cancel`, {
+    method: "PATCH",
+    headers: {"Authorization": "Bearer " + token},
+  });
+  loadBookings();
 }
