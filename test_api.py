@@ -31,3 +31,36 @@ def test_wrong_password_rejected(client):
     r = client.post("/login", json={
         "email": "lee@mail.com", "password": "wrongpass1"})
     assert r.status_code == 401
+
+
+def make_user(client, name, email, role):
+    client.post("/register", json={
+        "name": name, "email": email,
+        "password": "password123", "role": role})
+    r = client.post("/login", json={
+        "email": email, "password": "password123"})
+    return {"Authorization": f"Bearer {r.json()['access_token']}"}
+
+def test_overlap_rules(client):
+    owner = make_user(client, "Amy", "amy@mail.com", "owner")
+    customer = make_user(client, "Sam", "sam@mail.com", "customer")
+    s = client.post("/services", headers=owner, json={
+        "name": "Haircut", "duration_min": 30, "price": 15})
+    sid = s.json()["id"]
+
+    first = client.post("/bookings", headers=customer, json={
+        "service_id": sid, "start_time": "2026-12-02 11:00"})
+    assert first.status_code == 201
+
+    overlap = client.post("/bookings", headers=customer, json={
+        "service_id": sid, "start_time": "2026-12-02 11:15"})
+    assert overlap.status_code == 409
+
+    back_to_back = client.post("/bookings", headers=customer, json={
+        "service_id": sid, "start_time": "2026-12-02 11:30"})
+    assert back_to_back.status_code == 201
+
+def test_booking_requires_login(client):
+    r = client.post("/bookings", json={
+        "service_id": 1, "start_time": "2026-12-02 11:00"})
+    assert r.status_code in (401, 403)
