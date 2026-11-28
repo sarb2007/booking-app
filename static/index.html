@@ -7,6 +7,18 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- sign up form -->
+    <h2>Sign up</h2>
+    <input id="su-name" placeholder="Name">
+    <input id="su-email" placeholder="Email">
+    <input id="su-password" type="password" placeholder="Password (8+ characters)">
+    <select id="su-role">
+    <option value="customer">Customer</option>
+    <option value="owner">Business owner</option>
+    </select>
+    <button onclick="register()">Sign up</button>
+    <p id="signup-msg"></p>
+
     <!-- login form -->
     <h2>Log in</h2>
     <input id="email" placeholder="Email">
@@ -29,7 +41,7 @@
     <p id="book-msg"></p>
 
     <!-- my bookings -->
-     
+
     <h2>My bookings</h2>
     <button onclick="loadBookings()">Refresh</button>
     <p id="bookings-msg"></p>

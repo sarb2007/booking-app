@@ -147,3 +147,27 @@ async function cancelBooking(id) {
   });
   loadBookings();
 }
+
+// register function
+async function register() {
+  const msg = document.getElementById("signup-msg");
+  const res = await fetch("/register", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      name: document.getElementById("su-name").value,
+      email: document.getElementById("su-email").value,
+      password: document.getElementById("su-password").value,
+      role: document.getElementById("su-role").value,
+    }),
+  });
+  if (res.status === 201) {
+    msg.textContent = "Account created. You can log in now.";
+  } else if (res.status === 409) {
+    msg.textContent = "That email is already registered";
+  } else if (res.status === 422) {
+    msg.textContent = "Check your details (password needs 8+ characters)";
+  } else {
+    msg.textContent = "Something went wrong";
+  }
+}
