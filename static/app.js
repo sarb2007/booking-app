@@ -18,6 +18,7 @@ localStorage.setItem("token", data.access_token);
 status.textContent = "Logged in";
 }
 
+
 // load services function
 async function loadServices() {
     const res = await fetch("/services");
@@ -34,6 +35,11 @@ async function loadServices() {
     }
 }
 loadServices();
+
+
+// load slots function
+
+
 
 async function loadSlots() {
   const id = document.getElementById("service-select").value;
@@ -56,6 +62,41 @@ async function loadSlots() {
     const li = document.createElement("li");
     li.textContent = s.start_time.slice(11) + (s.available ? " - free" : " - taken");
     li.className = s.available ? "free" : "taken";
+    if (s.available) {
+    const btn = document.createElement("button");
+    btn.textContent = "Book";
+    btn.onclick = () => bookSlot(id, s.start_time);
+    li.appendChild(btn);
+    }
     list.appendChild(li);
   }
+}
+
+// book slot function
+
+async function bookSlot(serviceId, startTime) {
+  const token = localStorage.getItem("token");
+  const msg = document.getElementById("book-msg");
+  if (!token) {
+    msg.textContent = "Please log in first";
+    return;
+  }
+  const res = await fetch("/bookings", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + token,
+    },
+    body: JSON.stringify({service_id: Number(serviceId), start_time: startTime}),
+  });
+  if (res.status === 201) {
+    msg.textContent = "Booked! Check your email.";
+  } else if (res.status === 409) {
+    msg.textContent = "Sorry, that slot was just taken";
+  } else if (res.status === 401 || res.status === 403) {
+    msg.textContent = "Please log in as a customer";
+  } else {
+    msg.textContent = "Something went wrong";
+  }
+  loadSlots();
 }
