@@ -1,0 +1,10 @@
+body {
+  font-family: system-ui, sans-serif;
+  max-width: 600px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+input, button {
+  padding: 0.5rem;
+  margin: 0.25rem 0;
+}
