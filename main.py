@@ -12,6 +12,8 @@ from datetime import timezone
 from fastapi import Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
+DB_PATH = "booking.db"
+
 bearer = HTTPBearer()
 app = FastAPI()
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only-change-me")
@@ -42,7 +44,7 @@ class AvailabilityRequest(BaseModel):
 
 
 def get_db():
-    conn = sqlite3.connect("booking.db")
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
