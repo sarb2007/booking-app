@@ -35,6 +35,11 @@ class BookingRequest(BaseModel):
     service_id: int
     start_time: str   # format: "2026-12-01 10:00"
 
+class AvailabilityRequest(BaseModel):
+    day_of_week: Literal["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    start_time: str   # "09:00"
+    end_time: str     # "17:00"
+
 
 def get_db():
     conn = sqlite3.connect("booking.db")
@@ -198,3 +203,70 @@ def cancel_booking(booking_id: int, user: dict = Depends(get_current_user)):
     conn.commit()
     conn.close()
     return {"id": booking_id, "status": "cancelled"}
+
+@app.post("/availability", status_code=201)
+def set_availability(a: AvailabilityRequest, user: dict = Depends(get_current_user)):
+    if user["role"] != "owner":
+        raise HTTPException(status_code=403, detail="Only owners can set availability")
+    try:
+        start = datetime.strptime(a.start_time, "%H:%M")
+        end = datetime.strptime(a.end_time, "%H:%M")
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Use HH:MM format")
+    if start >= end:
+        raise HTTPException(status_code=422, detail="Start must be before end")
+
+    conn = get_db()
+    cur = conn.execute(
+        "INSERT INTO availability (day_of_week, start_time, end_time, owner_id) "
+        "VALUES (?, ?, ?, ?)",
+        (a.day_of_week, a.start_time, a.end_time, user["id"]),
+    )
+    conn.commit()
+    new_id = cur.lastrowid
+    conn.close()
+    return {"id": new_id}
+
+@app.get("/services/{service_id}/slots")
+def get_slots(service_id: int, date: str):
+    try:
+        day = datetime.strptime(date, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Use YYYY-MM-DD")
+    day_name = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][day.weekday()]
+
+    conn = get_db()
+    service = conn.execute(
+        "SELECT duration_min, owner_id FROM services WHERE id = ?", (service_id,)
+    ).fetchone()
+    if service is None:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Service not found")
+
+    hours = conn.execute(
+        "SELECT start_time, end_time FROM availability "
+        "WHERE owner_id = ? AND day_of_week = ?",
+        (service["owner_id"], day_name),
+    ).fetchall()
+    taken = conn.execute(
+        "SELECT bookings.start_time, bookings.end_time FROM bookings "
+        "JOIN services ON bookings.service_id = services.id "
+        "WHERE services.owner_id = ? AND bookings.status = 'confirmed' "
+        "AND bookings.start_time LIKE ?",
+        (service["owner_id"], date + "%"),
+    ).fetchall()
+    conn.close()
+
+    step = timedelta(minutes=service["duration_min"])
+    fmt = "%Y-%m-%d %H:%M"
+    slots = []
+    for h in hours:
+        cur = datetime.strptime(f"{date} {h['start_time']}", fmt)
+        closing = datetime.strptime(f"{date} {h['end_time']}", fmt)
+        while cur + step <= closing:
+            s = cur.strftime(fmt)
+            e = (cur + step).strftime(fmt)
+            free = not any(s < t["end_time"] and e > t["start_time"] for t in taken)
+            slots.append({"start_time": s, "end_time": e, "available": free})
+            cur += step
+    return slots
