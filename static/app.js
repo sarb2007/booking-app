@@ -1,4 +1,4 @@
-
+// login function
 async function login() {
 const res = await fetch("/login", {
     method: "POST",
@@ -17,6 +17,8 @@ const data = await res.json();
 localStorage.setItem("token", data.access_token);
 status.textContent = "Logged in";
 }
+
+// load services function
 async function loadServices() {
     const res = await fetch("/services");
     const services = await res.json();
@@ -25,6 +27,35 @@ async function loadServices() {
     const li = document.createElement("li");
     li.textContent = `${s.name} - ${s.duration_min} min - £${s.price}`;
     list.appendChild(li);
+    const option = document.createElement("option");
+    option.value = s.id;
+    option.textContent = s.name;
+    document.getElementById("service-select").appendChild(option);
     }
 }
 loadServices();
+
+async function loadSlots() {
+  const id = document.getElementById("service-select").value;
+  const date = document.getElementById("date").value;
+  const msg = document.getElementById("slots-msg");
+  const list = document.getElementById("slots");
+  list.replaceChildren();
+  if (!id || !date) {
+    msg.textContent = "Choose a service and a date";
+    return;
+  }
+  msg.textContent = "";
+  const res = await fetch(`/services/${id}/slots?date=${date}`);
+  const slots = await res.json();
+  if (slots.length === 0) {
+    msg.textContent = "No slots on this day";
+    return;
+  }
+  for (const s of slots) {
+    const li = document.createElement("li");
+    li.textContent = s.start_time.slice(11) + (s.available ? " - free" : " - taken");
+    li.className = s.available ? "free" : "taken";
+    list.appendChild(li);
+  }
+}

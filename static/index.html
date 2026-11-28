@@ -7,13 +7,24 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- login form -->
     <h2>Log in</h2>
     <input id="email" placeholder="Email">
     <input id="password" type="password" placeholder="Password">
     <button onclick="login()">Log in</button>
     <p id="status"></p>  
+    <!-- services list -->
     <h1>Services</h1>
     <ul id="services"></ul>
+
+    <!-- now free slots -->
+
+    <h2>Free slots</h2>
+    <select id="service-select"></select>
+    <input type="date" id="date">
+    <button onclick="loadSlots()">Show slots</button>
+    <p id="slots-msg"></p>
+    <ul id="slots"></ul>
 
 
 
